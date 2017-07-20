@@ -7,8 +7,9 @@ const int GraspDetectionNode::CLOUD_INDEXED = 1; ///< cloud with indices
 const int GraspDetectionNode::CLOUD_SAMPLES = 2; ///< cloud with (x,y,z) samples
 
 
-GraspDetectionNode::GraspDetectionNode(ros::NodeHandle& node) : has_cloud_(false), has_normals_(false),
-  size_left_cloud_(0), has_samples_(true), frame_("")
+GraspDetectionNode::GraspDetectionNode(ros::NodeHandle& node)
+  : has_cloud_(false), has_normals_(false), size_left_cloud_(0),
+    has_samples_(true), frame_(""), tf_buffer_(), tf_listener_(tf_buffer_)
 {
   cloud_camera_ = NULL;
 
@@ -39,6 +40,7 @@ GraspDetectionNode::GraspDetectionNode(ros::NodeHandle& node) : has_cloud_(false
   if (!rviz_topic.empty())
   {
     grasps_rviz_pub_ = node.advertise<visualization_msgs::MarkerArray>(rviz_topic, 1);
+    workspace_rviz_pub_ = node.advertise<visualization_msgs::Marker>("gpd_workspace_marker", 1);
     use_rviz_ = true;
   }
   else
@@ -88,6 +90,7 @@ void GraspDetectionNode::run()
       if (use_rviz_)
       {
         grasps_rviz_pub_.publish(convertToVisualGraspMsg(grasps, 0.1, 0.06, 0.01, 0.02, frame_));
+        workspace_rviz_pub_.publish(createWorkspaceMarker());
       }
 
       // reset the system
@@ -152,27 +155,31 @@ void GraspDetectionNode::cloud_callback(const sensor_msgs::PointCloud2& msg)
     delete cloud_camera_;
     cloud_camera_ = NULL;
 
-    Eigen::Matrix3Xd view_points(3,1);
+    sensor_msgs::PointCloud2 pc;
+    tf_buffer_.transform(msg, pc, "base_link");
+
+    Eigen::Matrix3Xd view_points(3, 1);
+
     view_points.col(0) = view_point_;
 
-    if (msg.fields.size() == 6 && msg.fields[3].name == "normal_x" && msg.fields[4].name == "normal_y"
+    if (pc.fields.size() == 6 && pc.fields[3].name == "normal_x" && pc.fields[4].name == "normal_y"
       && msg.fields[5].name == "normal_z")
     {
       PointCloudPointNormal::Ptr cloud(new PointCloudPointNormal);
-      pcl::fromROSMsg(msg, *cloud);
+      pcl::fromROSMsg(pc, *cloud);
       cloud_camera_ = new CloudCamera(cloud, 0, view_points);
       ROS_INFO_STREAM("Received cloud with " << cloud_camera_->getCloudProcessed()->size() << " points and normals.");
     }
     else
     {
       PointCloudRGBA::Ptr cloud(new PointCloudRGBA);
-      pcl::fromROSMsg(msg, *cloud);
+      pcl::fromROSMsg(pc, *cloud);
       cloud_camera_ = new CloudCamera(cloud, 0, view_points);
       ROS_INFO_STREAM("Received cloud with " << cloud_camera_->getCloudProcessed()->size() << " points.");
     }
 
     has_cloud_ = true;
-    frame_ = msg.header.frame_id;
+    frame_ = pc.header.frame_id;
   }
 }
 
@@ -423,6 +430,50 @@ visualization_msgs::Marker GraspDetectionNode::createHandBaseMarker(const Eigen:
   marker.scale.z = height; // hand vertical direction
 
   marker.color.a = 0.5;
+  marker.color.r = 0.0;
+  marker.color.g = 0.0;
+  marker.color.b = 1.0;
+
+  return marker;
+}
+
+
+visualization_msgs::Marker GraspDetectionNode::createWorkspaceMarker()
+{
+  double xmin = workspace_[0];
+  double xmax = workspace_[1];
+  double ymin = workspace_[2];
+  double ymax = workspace_[3];
+  double zmin = workspace_[4];
+  double zmax = workspace_[5];
+
+  double xsize = xmax - xmin;
+  double ysize = ymax - ymin;
+  double zsize = zmax - zmin;
+
+  visualization_msgs::Marker marker;
+  marker.header.frame_id = "base_link";
+  marker.header.stamp = ros::Time();
+  marker.ns = "gpd_workspace";
+  marker.id = 0;
+  marker.type = visualization_msgs::Marker::CUBE;
+  marker.action = visualization_msgs::Marker::ADD;
+  marker.pose.position.x = (xmax + xmin) * 0.5;
+  marker.pose.position.y = (ymax + ymin) * 0.5;
+  marker.pose.position.z = (zmax + zmin) * 0.5;
+  marker.lifetime = ros::Duration(10);
+
+  marker.pose.orientation.x = 0;
+  marker.pose.orientation.y = 0;
+  marker.pose.orientation.z = 0;
+  marker.pose.orientation.w = 1;
+
+  // these scales are relative to the hand frame (unit: meters)
+  marker.scale.x = xsize;
+  marker.scale.y = ysize;
+  marker.scale.z = zsize;
+
+  marker.color.a = 0.2;
   marker.color.r = 0.0;
   marker.color.g = 0.0;
   marker.color.b = 1.0;

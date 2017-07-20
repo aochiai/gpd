@@ -4,8 +4,9 @@ project(gpd)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS cmake_modules eigen_conversions geometry_msgs message_generation roscpp 
-  sensor_msgs std_msgs)
+find_package(catkin REQUIRED
+    COMPONENTS cmake_modules eigen_conversions geometry_msgs message_generation
+    roscpp sensor_msgs std_msgs tf2_ros tf2_sensor_msgs)
 
 # PCL
 find_package(PCL REQUIRED)
@@ -19,18 +20,19 @@ find_package(OpenCV)
 # custom messages
 find_package(message_generation)
 
-find_library(GENERATOR_LIB grasp_candidates_generator)
+find_library(GENERATOR_LIB grasp_candidates_generator HINTS ${CATKIN_DEVEL_PREFIX}/lib)
 # include_directories(${GENERATOR_LIB_INCLUDE_DIRS})
 
 # CAFFE
-IF(NOT EXISTS ${CAFFE_DIR})
-  SET(CAFFE_DIR "$ENV{CAFFE_DIR}")
-  SET(CAFFE_DIR "/home/andreas/software/caffe/build")
-ENDIF()
-MESSAGE("CAFFE_DIR: " ${CAFFE_DIR})
-find_package(Caffe)
+#IF(NOT EXISTS ${CAFFE_DIR})
+#  SET(CAFFE_DIR "$ENV{CAFFE_DIR}")
+#  SET(CAFFE_DIR "/home/andreas/software/caffe/build")
+#ENDIF()
+#MESSAGE("CAFFE_DIR: " ${CAFFE_DIR})
+find_package(Caffe REQUIRED)
 include_directories(${Caffe_INCLUDE_DIRS})
 add_definitions(${Caffe_DEFINITIONS})
+
 
 ## Set compiler optimization flags
 set(CMAKE_CXX_FLAGS "-DNDEBUG -O3 -fopenmp -flto -Wno-deprecated -Wenum-compare")

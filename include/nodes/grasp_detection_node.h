@@ -43,6 +43,8 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_sensor_msgs/tf2_sensor_msgs.h>
 
 // PCL
 #include <pcl/common/common.h>
@@ -174,6 +176,8 @@ private:
 
   Eigen::Matrix3Xd fillMatrixFromFile(const std::string& filename, int num_normals);
 
+  visualization_msgs::Marker createWorkspaceMarker();
+
   Eigen::Vector3d view_point_; ///< (input) view point of the camera onto the point cloud
 
   CloudCamera* cloud_camera_; ///< stores point cloud with (optional) camera information and surface normals
@@ -185,6 +189,7 @@ private:
   ros::Subscriber samples_sub_; ///< ROS subscriber for samples messages
   ros::Publisher grasps_pub_; ///< ROS publisher for grasp list messages
   ros::Publisher grasps_rviz_pub_; ///< ROS publisher for grasps in rviz (visualization)
+  ros::Publisher workspace_rviz_pub_; ///< ROS publisher for grasps in rviz (visualization)
 
   bool use_importance_sampling_; ///< if importance sampling is used
   bool filter_grasps_; ///< if grasps are filtered on workspace and gripper aperture
@@ -204,6 +209,9 @@ private:
   static const int POINT_CLOUD_2; ///< sensor_msgs/PointCloud2
   static const int CLOUD_INDEXED; ///< gpd/CloudIndexed
   static const int CLOUD_SAMPLES; ///< gpd/CloudSamples
+
+  tf2_ros::Buffer tf_buffer_;
+  tf2_ros::TransformListener tf_listener_;
 };
 
 #endif /* GRASP_DETECTION_NODE_H_ */
